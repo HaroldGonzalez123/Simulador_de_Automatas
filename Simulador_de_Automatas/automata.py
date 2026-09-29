@@ -1,6 +1,5 @@
 class Automata:
     def __init__(self):
-        
         self.estados = set()
         self.alfabeto = set()
         self.estado_inicial = None
@@ -34,3 +33,22 @@ class Automata:
             raise ValueError("El símbolo no pertenece al alfabeto.")
 
         self.transiciones[(origen, simbolo)] = destino
+
+    def simular(self, cadena):
+        if self.estado_inicial is None:
+            raise ValueError("No se ha definido el estado inicial.")
+
+        estado_actual = self.estado_inicial
+
+        for simbolo in cadena:
+            if simbolo not in self.alfabeto:
+                return False
+
+            clave = (estado_actual, simbolo)
+
+            if clave not in self.transiciones:
+                return False
+
+            estado_actual = self.transiciones[clave]
+
+        return estado_actual in self.estados_finales
