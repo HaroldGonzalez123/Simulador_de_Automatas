@@ -58,6 +58,7 @@ class Automata:
             estados_actuales = self.epsilon_closure(nuevos_estados)
 
         return bool(estados_actuales & self.estados_finales)
+    
     def epsilon_closure(self, estados):
         clausura = set(estados)
         pendientes = list(estados)
@@ -73,3 +74,67 @@ class Automata:
                         pendientes.append(destino)
 
         return clausura
+
+    def mover(self, estados, simbolo):
+        destinos = set()
+
+        for estado in estados:
+            clave = (estado, simbolo)
+
+            if clave in self.transiciones:
+                destinos.update(self.transiciones[clave])
+
+        return destinos 
+
+    def convertir_a_afd(self):
+        afd = Automata()
+
+        estado_inicial = frozenset(
+            self.epsilon_closure({self.estado_inicial})
+        )
+
+        pendientes = [estado_inicial]
+        visitados = set()
+
+        nombre_inicial = "{" + ",".join(sorted(estado_inicial)) + "}"
+        afd.agregar_estado(nombre_inicial)
+        afd.definir_inicial(nombre_inicial)
+
+        while pendientes:
+            conjunto_actual = pendientes.pop()
+
+            if conjunto_actual in visitados:
+                continue
+
+            visitados.add(conjunto_actual)
+
+            nombre_actual = "{" + ",".join(sorted(conjunto_actual)) + "}"
+            afd.agregar_estado(nombre_actual)
+            if conjunto_actual & self.estados_finales:
+                afd.agregar_final(nombre_actual)
+
+            for simbolo in self.alfabeto:
+                destinos = self.mover(conjunto_actual, simbolo)
+                destinos = self.epsilon_closure(destinos)
+
+                if not destinos:
+                    continue
+
+                nuevo_conjunto = frozenset(destinos)
+                nombre_nuevo = "{" + ",".join(sorted(nuevo_conjunto)) + "}"
+
+                afd.agregar_simbolo(simbolo)
+
+                if nombre_nuevo not in afd.estados:
+                    afd.agregar_estado(nombre_nuevo)
+
+                afd.agregar_transicion(
+                    nombre_actual,
+                    simbolo,
+                    nombre_nuevo
+                )
+
+                if nuevo_conjunto not in visitados:
+                    pendientes.append(nuevo_conjunto)
+
+        return afd
