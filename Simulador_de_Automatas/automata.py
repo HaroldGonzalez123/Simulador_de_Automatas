@@ -32,23 +32,44 @@ class Automata:
         if simbolo != "ε" and simbolo not in self.alfabeto:
             raise ValueError("El símbolo no pertenece al alfabeto.")
 
-        self.transiciones[(origen, simbolo)] = destino
+        self.transiciones.setdefault((origen, simbolo), set()).add(destino)
 
     def simular(self, cadena):
         if self.estado_inicial is None:
             raise ValueError("No se ha definido el estado inicial.")
 
-        estado_actual = self.estado_inicial
+        estados_actuales = self.epsilon_closure({self.estado_inicial})
 
         for simbolo in cadena:
             if simbolo not in self.alfabeto:
                 return False
 
-            clave = (estado_actual, simbolo)
+            nuevos_estados = set()
 
-            if clave not in self.transiciones:
+            for estado in estados_actuales:
+                clave = (estado, simbolo)
+
+                if clave in self.transiciones:
+                    nuevos_estados.update(self.transiciones[clave])
+
+            if not nuevos_estados:
                 return False
 
-            estado_actual = self.transiciones[clave]
+            estados_actuales = self.epsilon_closure(nuevos_estados)
 
-        return estado_actual in self.estados_finales
+        return bool(estados_actuales & self.estados_finales)
+    def epsilon_closure(self, estados):
+        clausura = set(estados)
+        pendientes = list(estados)
+
+        while pendientes:
+            estado = pendientes.pop()
+            clave = (estado, "ε")
+
+            if clave in self.transiciones:
+                for destino in self.transiciones[clave]:
+                    if destino not in clausura:
+                        clausura.add(destino)
+                        pendientes.append(destino)
+
+        return clausura
