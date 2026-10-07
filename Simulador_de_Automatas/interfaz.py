@@ -15,8 +15,15 @@ def iniciar_interfaz():
 
     automata = Automata()
 
-    # Guardar la posición visual de cada estado
+    # Posición visual de cada estado
     posiciones = {}
+
+    # ==========================================
+    # MENSAJE DE ESTADO
+    # ==========================================
+
+    def mostrar_mensaje(texto):
+        mensaje.config(text=texto)
 
     # ==========================================
     # FUNCIONES
@@ -39,7 +46,7 @@ def iniciar_interfaz():
             )
             return
 
-        # Guardar estado en el autómata
+        # Guardar estado
         automata.agregar_estado(estado)
 
         # Calcular posición
@@ -50,9 +57,10 @@ def iniciar_interfaz():
 
         posiciones[estado] = (x, y)
 
-        # Dibujar estado
+        # Radio del estado
         radio = 35
 
+        # Dibujar círculo
         canvas.create_oval(
             x - radio,
             y - radio,
@@ -70,7 +78,12 @@ def iniciar_interfaz():
             font=("Arial", 12, "bold")
         )
 
+        # Limpiar entrada
         entrada_estado.delete(0, tk.END)
+
+        mostrar_mensaje(
+            f"Estado {estado} agregado correctamente."
+        )
 
     def agregar_simbolo():
         simbolo = entrada_simbolo.get().strip()
@@ -96,14 +109,15 @@ def iniciar_interfaz():
             )
             return
 
-        # Guardar símbolo
+        # Guardar símbolo en el alfabeto
         automata.agregar_simbolo(simbolo)
 
+        # Limpiar entrada
         entrada_simbolo.delete(0, tk.END)
 
-        messagebox.showinfo(
-            "Símbolo agregado",
-            f"El símbolo {simbolo} fue agregado al alfabeto."
+        # Mostrar mensaje sin ventana emergente
+        mostrar_mensaje(
+            f"Símbolo {simbolo} agregado al alfabeto."
         )
 
     def agregar_transicion():
@@ -111,9 +125,9 @@ def iniciar_interfaz():
         simbolo = entrada_transicion.get().strip()
         destino = entrada_destino.get().strip()
 
-        # Permitir escribir "e" para epsilon
-        if simbolo.lower() == "e":
-            simbolo = "ε"
+        # Convertir epsilon
+        if simbolo.lower() == "e" or simbolo == "ε":
+            simbolo = "e"
 
         # Validar campos
         if not origen or not simbolo or not destino:
@@ -123,7 +137,7 @@ def iniciar_interfaz():
             )
             return
 
-        # Validar estado origen
+        # Validar origen
         if origen not in automata.estados:
             messagebox.showwarning(
                 "Estado inválido",
@@ -131,7 +145,7 @@ def iniciar_interfaz():
             )
             return
 
-        # Validar estado destino
+        # Validar destino
         if destino not in automata.estados:
             messagebox.showwarning(
                 "Estado inválido",
@@ -140,7 +154,7 @@ def iniciar_interfaz():
             return
 
         # Validar símbolo
-        if simbolo != "ε" and simbolo not in automata.alfabeto:
+        if simbolo != "e" and simbolo not in automata.alfabeto:
             messagebox.showwarning(
                 "Símbolo inválido",
                 f"El símbolo {simbolo} no pertenece al alfabeto."
@@ -154,7 +168,7 @@ def iniciar_interfaz():
             destino
         )
 
-        # Posición de origen y destino
+        # Posiciones
         x1, y1 = posiciones[origen]
         x2, y2 = posiciones[destino]
 
@@ -170,11 +184,11 @@ def iniciar_interfaz():
 
         if distancia != 0:
 
-            # Punto de inicio en el borde
+            # Inicio en el borde del estado origen
             inicio_x = x1 + (dx / distancia) * radio
             inicio_y = y1 + (dy / distancia) * radio
 
-            # Punto final en el borde
+            # Final en el borde del estado destino
             fin_x = x2 - (dx / distancia) * radio
             fin_y = y2 - (dy / distancia) * radio
 
@@ -188,20 +202,25 @@ def iniciar_interfaz():
                 width=2
             )
 
-            # Punto medio
+            # Posición del símbolo
             xm = (inicio_x + fin_x) / 2
             ym = (inicio_y + fin_y) / 2
 
-            # Dibujar símbolo
+            # Mostrar epsilon como ε
+            simbolo_mostrar = (
+                "ε" if simbolo == "e"
+                else simbolo
+            )
+
             canvas.create_text(
                 xm,
                 ym - 12,
-                text=simbolo,
+                text=simbolo_mostrar,
                 font=("Arial", 12, "bold")
             )
 
         # ==========================================
-        # TRANSICIÓN DEL ESTADO HACIA SÍ MISMO
+        # TRANSICIÓN HACIA EL MISMO ESTADO
         # ==========================================
 
         else:
@@ -217,10 +236,15 @@ def iniciar_interfaz():
                 width=2
             )
 
+            simbolo_mostrar = (
+                "ε" if simbolo == "e"
+                else simbolo
+            )
+
             canvas.create_text(
                 x1,
                 y1 - 80,
-                text=simbolo,
+                text=simbolo_mostrar,
                 font=("Arial", 12, "bold")
             )
 
@@ -228,6 +252,10 @@ def iniciar_interfaz():
         entrada_origen.delete(0, tk.END)
         entrada_transicion.delete(0, tk.END)
         entrada_destino.delete(0, tk.END)
+
+        mostrar_mensaje(
+            f"Transición {origen} → {simbolo if simbolo != 'e' else 'ε'} → {destino} agregada."
+        )
 
     def definir_inicial():
         estado = entrada_inicial.get().strip()
@@ -262,11 +290,11 @@ def iniciar_interfaz():
             width=2
         )
 
+        # Limpiar
         entrada_inicial.delete(0, tk.END)
 
-        messagebox.showinfo(
-            "Estado inicial",
-            f"{estado} es ahora el estado inicial."
+        mostrar_mensaje(
+            f"{estado} definido como estado inicial."
         )
 
     def definir_final():
@@ -293,7 +321,7 @@ def iniciar_interfaz():
             )
             return
 
-        # Guardar como estado final
+        # Guardar como final
         automata.agregar_final(estado)
 
         # Obtener posición
@@ -311,17 +339,17 @@ def iniciar_interfaz():
             width=2
         )
 
+        # Limpiar
         entrada_final.delete(0, tk.END)
 
-        messagebox.showinfo(
-            "Estado final",
-            f"{estado} ahora es un estado final."
+        mostrar_mensaje(
+            f"{estado} definido como estado final."
         )
 
     def simular_cadena():
         cadena = entrada_cadena.get()
 
-        # Verificar estado inicial
+        # Estado inicial
         if automata.estado_inicial is None:
             messagebox.showwarning(
                 "Autómata incompleto",
@@ -329,7 +357,7 @@ def iniciar_interfaz():
             )
             return
 
-        # Verificar estados finales
+        # Estados finales
         if not automata.estados_finales:
             messagebox.showwarning(
                 "Autómata incompleto",
@@ -338,16 +366,21 @@ def iniciar_interfaz():
             return
 
         try:
-            # Ejecutar la simulación real
             aceptada = automata.simular(cadena)
 
             if aceptada:
                 resultado.config(
                     text="Resultado: ✅ ACEPTADA"
                 )
+                mostrar_mensaje(
+                    f"La cadena '{cadena}' fue aceptada."
+                )
             else:
                 resultado.config(
                     text="Resultado: ❌ RECHAZADA"
+                )
+                mostrar_mensaje(
+                    f"La cadena '{cadena}' fue rechazada."
                 )
 
         except ValueError as error:
@@ -431,7 +464,6 @@ def iniciar_interfaz():
         fill="y"
     )
 
-    # Frame de controles
     panel_formulario = tk.Frame(
         canvas_control
     )
@@ -441,10 +473,6 @@ def iniciar_interfaz():
         window=panel_formulario,
         anchor="nw"
     )
-
-    # ==========================================
-    # ACTUALIZAR SCROLL
-    # ==========================================
 
     def actualizar_scrollregion(event=None):
         canvas_control.configure(
@@ -466,10 +494,6 @@ def iniciar_interfaz():
         actualizar_scrollregion
     )
 
-    # ==========================================
-    # RUEDA DEL MOUSE
-    # ==========================================
-
     def desplazar_rueda(event):
         canvas_control.yview_scroll(
             int(-1 * (event.delta / 120)),
@@ -482,7 +506,7 @@ def iniciar_interfaz():
     )
 
     # ==========================================
-    # PANEL DERECHO - DIAGRAMA
+    # PANEL DERECHO
     # ==========================================
 
     panel_diagrama = tk.LabelFrame(
@@ -758,6 +782,7 @@ def iniciar_interfaz():
         padx=15
     )
 
+    # Resultado
     resultado = tk.Label(
         panel_formulario,
         text="Resultado: ---",
@@ -765,12 +790,24 @@ def iniciar_interfaz():
     )
 
     resultado.pack(
-        pady=(5, 20),
+        pady=(5, 10),
+        padx=15
+    )
+
+    # Mensaje informativo
+    mensaje = tk.Label(
+        panel_formulario,
+        text="",
+        font=("Arial", 10)
+    )
+
+    mensaje.pack(
+        pady=(0, 20),
         padx=15
     )
 
     # ==========================================
-    # INICIAR INTERFAZ
+    # INICIAR
     # ==========================================
 
     ventana.mainloop()
