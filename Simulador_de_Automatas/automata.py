@@ -7,25 +7,26 @@ class Automata:
         self.estados_finales = set()
         self.transiciones = {}
 
-    # ==========================================
+    # ============================================================
     # ESTADOS
-    # ==========================================
+    # ============================================================
 
     def agregar_estado(self, estado):
         self.estados.add(estado)
 
-    # ==========================================
+    # ============================================================
     # ALFABETO
-    # ==========================================
+    # ============================================================
 
     def agregar_simbolo(self, simbolo):
         self.alfabeto.add(simbolo)
 
-    # ==========================================
+    # ============================================================
     # ESTADO INICIAL
-    # ==========================================
+    # ============================================================
 
     def definir_inicial(self, estado):
+
         if estado not in self.estados:
             raise ValueError(
                 "El estado inicial debe existir."
@@ -33,11 +34,12 @@ class Automata:
 
         self.estado_inicial = estado
 
-    # ==========================================
+    # ============================================================
     # ESTADOS FINALES
-    # ==========================================
+    # ============================================================
 
     def agregar_final(self, estado):
+
         if estado not in self.estados:
             raise ValueError(
                 "El estado final debe existir."
@@ -45,9 +47,9 @@ class Automata:
 
         self.estados_finales.add(estado)
 
-    # ==========================================
+    # ============================================================
     # TRANSICIONES
-    # ==========================================
+    # ============================================================
 
     def agregar_transicion(self, origen, simbolo, destino):
 
@@ -74,9 +76,9 @@ class Automata:
             set()
         ).add(destino)
 
-    # ==========================================
-    # CIERRE EPSILON
-    # ==========================================
+    # ============================================================
+    # CERRADURA EPSILON
+    # ============================================================
 
     def epsilon_closure(self, estados):
 
@@ -94,14 +96,15 @@ class Automata:
                 for destino in self.transiciones[clave]:
 
                     if destino not in clausura:
+
                         clausura.add(destino)
                         pendientes.append(destino)
 
         return clausura
 
-    # ==========================================
+    # ============================================================
     # MOVER
-    # ==========================================
+    # ============================================================
 
     def mover(self, estados, simbolo):
 
@@ -112,32 +115,33 @@ class Automata:
             clave = (estado, simbolo)
 
             if clave in self.transiciones:
+
                 destinos.update(
                     self.transiciones[clave]
                 )
 
         return destinos
 
-    # ==========================================
+    # ============================================================
     # SIMULACIÓN
-    # ==========================================
+    # ============================================================
 
     def simular(self, cadena):
 
         if self.estado_inicial is None:
+
             raise ValueError(
                 "No se ha definido el estado inicial."
             )
 
-        # Comenzamos con el cierre epsilon
         estados_actuales = self.epsilon_closure(
             {self.estado_inicial}
         )
 
-        # Procesar cada símbolo
         for simbolo in cadena:
 
             if simbolo not in self.alfabeto:
+
                 return False
 
             estados_actuales = self.mover(
@@ -146,22 +150,21 @@ class Automata:
             )
 
             if not estados_actuales:
+
                 return False
 
-            # Aplicar epsilon nuevamente
             estados_actuales = self.epsilon_closure(
                 estados_actuales
             )
 
-        # Aceptar si algún estado actual es final
         return bool(
             estados_actuales &
             self.estados_finales
         )
 
-    # ==========================================
+    # ============================================================
     # ESTADOS ALCANZABLES
-    # ==========================================
+    # ============================================================
 
     def estados_alcanzables(self):
 
@@ -194,13 +197,12 @@ class Automata:
 
         return alcanzables
 
-    # ==========================================
+    # ============================================================
     # ESTADOS DISTINGUIBLES
-    # ==========================================
+    # ============================================================
 
     def son_distinguibles(self, estado1, estado2):
 
-        # Uno final y otro no final
         if (
             estado1 in self.estados_finales
             and estado2 not in self.estados_finales
@@ -215,9 +217,9 @@ class Automata:
 
         return False
 
-    # ==========================================
+    # ============================================================
     # TABLA DE DISTINGUIBILIDAD
-    # ==========================================
+    # ============================================================
 
     def tabla_distinguibilidad(self):
 
@@ -227,9 +229,10 @@ class Automata:
 
         distinguibles = set()
 
-        # --------------------------------------
-        # PASO 1: FINAL VS. NO FINAL
-        # --------------------------------------
+        # --------------------------------------------------------
+        # Marcar inicialmente los pares:
+        # uno final y otro no final
+        # --------------------------------------------------------
 
         for i in range(len(estados)):
 
@@ -247,9 +250,9 @@ class Automata:
                         (estado1, estado2)
                     )
 
-        # --------------------------------------
-        # PASO 2: PROPAGAR DISTINCIONES
-        # --------------------------------------
+        # --------------------------------------------------------
+        # Propagar distinguibilidad
+        # --------------------------------------------------------
 
         cambio = True
 
@@ -259,10 +262,7 @@ class Automata:
 
             for i in range(len(estados)):
 
-                for j in range(
-                    i + 1,
-                    len(estados)
-                ):
+                for j in range(i + 1, len(estados)):
 
                     estado1 = estados[i]
                     estado2 = estados[j]
@@ -297,14 +297,12 @@ class Automata:
                             None
                         )
 
-                        # Ninguno tiene transición
                         if (
                             destino1 is None
                             and destino2 is None
                         ):
                             continue
 
-                        # Solo uno tiene transición
                         if (
                             destino1 is None
                             or destino2 is None
@@ -337,9 +335,9 @@ class Automata:
 
         return distinguibles
 
-    # ==========================================
+    # ============================================================
     # MINIMIZAR AFD
-    # ==========================================
+    # ============================================================
 
     def minimizar_afd(self):
 
@@ -349,11 +347,11 @@ class Automata:
             self.estados
         )
 
-        # --------------------------------------
-        # ENCONTRAR GRUPOS EQUIVALENTES
-        # --------------------------------------
-
         grupos = []
+
+        # --------------------------------------------------------
+        # Crear grupos de estados equivalentes
+        # --------------------------------------------------------
 
         for estado in estados:
 
@@ -389,19 +387,47 @@ class Automata:
                     [estado]
                 )
 
-        # --------------------------------------
-        # CREAR NUEVO AUTÓMATA
-        # --------------------------------------
+        # --------------------------------------------------------
+        # Crear nuevo AFD
+        # --------------------------------------------------------
 
         afd_minimo = Automata()
 
         nombres_grupos = {}
 
-        for i, grupo in enumerate(grupos):
+        for grupo in grupos:
+
+            estados_limpios = []
+
+            for estado in sorted(grupo):
+
+                # Los estados provenientes de AFN → AFD
+                # ya tienen llaves, por ejemplo:
+                # {q0,q1}
+                #
+                # Las quitamos para evitar:
+                # {{q0,q1},{q0,q2}}
+
+                if (
+                    estado.startswith("{")
+                    and estado.endswith("}")
+                ):
+
+                    estado = estado[1:-1]
+
+                estados_limpios.append(
+                    estado
+                )
+
+            # Si un grupo contiene varios estados,
+            # los mostramos separados por |
+            #
+            # Ejemplo:
+            # {q0,q2 | q0,q1,q2}
 
             nombre = (
                 "{"
-                + ",".join(sorted(grupo))
+                + " | ".join(estados_limpios)
                 + "}"
             )
 
@@ -411,9 +437,9 @@ class Automata:
                 nombre
             )
 
-        # --------------------------------------
-        # ESTADO INICIAL
-        # --------------------------------------
+        # --------------------------------------------------------
+        # Estado inicial
+        # --------------------------------------------------------
 
         for nombre, grupo in nombres_grupos.items():
 
@@ -423,9 +449,9 @@ class Automata:
                     nombre
                 )
 
-        # --------------------------------------
-        # ESTADOS FINALES
-        # --------------------------------------
+        # --------------------------------------------------------
+        # Estados finales
+        # --------------------------------------------------------
 
         for nombre, grupo in nombres_grupos.items():
 
@@ -438,9 +464,9 @@ class Automata:
                     nombre
                 )
 
-        # --------------------------------------
-        # ALFABETO
-        # --------------------------------------
+        # --------------------------------------------------------
+        # Alfabeto
+        # --------------------------------------------------------
 
         for simbolo in self.alfabeto:
 
@@ -448,9 +474,9 @@ class Automata:
                 simbolo
             )
 
-        # --------------------------------------
-        # TRANSICIONES
-        # --------------------------------------
+        # --------------------------------------------------------
+        # Transiciones
+        # --------------------------------------------------------
 
         for nombre, grupo in nombres_grupos.items():
 
@@ -471,7 +497,10 @@ class Automata:
                         )
                     )
 
-                    for nombre_destino, grupo_destino in nombres_grupos.items():
+                    for (
+                        nombre_destino,
+                        grupo_destino
+                    ) in nombres_grupos.items():
 
                         if destino in grupo_destino:
 
@@ -485,22 +514,23 @@ class Automata:
 
         return afd_minimo
 
-    # ==========================================
+    # ============================================================
     # CONVERTIR AFN → AFD
-    # ==========================================
+    # ============================================================
 
     def convertir_a_afd(self):
 
         if self.estado_inicial is None:
+
             raise ValueError(
                 "Debe definir el estado inicial."
             )
 
         afd = Automata()
 
-        # --------------------------------------
-        # CIERRE EPSILON DEL INICIAL
-        # --------------------------------------
+        # --------------------------------------------------------
+        # Estado inicial del AFD
+        # --------------------------------------------------------
 
         estado_inicial = frozenset(
             self.epsilon_closure(
@@ -514,7 +544,6 @@ class Automata:
 
         visitados = set()
 
-        # Nombre del estado inicial
         nombre_inicial = (
             "{"
             + ",".join(
@@ -531,9 +560,9 @@ class Automata:
             nombre_inicial
         )
 
-        # --------------------------------------
-        # CONSTRUCCIÓN POR SUBCONJUNTOS
-        # --------------------------------------
+        # --------------------------------------------------------
+        # Construcción por subconjuntos
+        # --------------------------------------------------------
 
         while pendientes:
 
@@ -554,12 +583,14 @@ class Automata:
                 + "}"
             )
 
-            # Agregar estado
             afd.agregar_estado(
                 nombre_actual
             )
 
-            # Estado final
+            # ----------------------------------------------------
+            # Determinar si el conjunto contiene un estado final
+            # ----------------------------------------------------
+
             if (
                 conjunto_actual
                 & self.estados_finales
@@ -569,9 +600,9 @@ class Automata:
                     nombre_actual
                 )
 
-            # ----------------------------------
-            # PROCESAR CADA SÍMBOLO
-            # ----------------------------------
+            # ----------------------------------------------------
+            # Procesar cada símbolo
+            # ----------------------------------------------------
 
             for simbolo in self.alfabeto:
 
@@ -599,12 +630,10 @@ class Automata:
                     + "}"
                 )
 
-                # Agregar símbolo
                 afd.agregar_simbolo(
                     simbolo
                 )
 
-                # Agregar nuevo estado
                 if (
                     nombre_nuevo
                     not in afd.estados
@@ -614,14 +643,12 @@ class Automata:
                         nombre_nuevo
                     )
 
-                # Agregar transición
                 afd.agregar_transicion(
                     nombre_actual,
                     simbolo,
                     nombre_nuevo
                 )
 
-                # Continuar explorando
                 if (
                     nuevo_conjunto
                     not in visitados
