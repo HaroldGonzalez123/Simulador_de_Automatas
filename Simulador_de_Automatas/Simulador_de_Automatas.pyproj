@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>704b3a4f-ed77-4e06-a22b-a11183a2a0b6</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>Simulador_de_Automatas.py</StartupFile>
+    <StartupFile>interfaz.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -22,6 +22,8 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="automata.py" />
+    <Compile Include="interfaz.py" />
     <Compile Include="Simulador_de_Automatas.py" />
   </ItemGroup>
   <ItemGroup>
