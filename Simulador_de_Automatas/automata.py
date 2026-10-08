@@ -141,7 +141,6 @@ class Automata:
         for simbolo in cadena:
 
             if simbolo not in self.alfabeto:
-
                 return False
 
             estados_actuales = self.mover(
@@ -150,7 +149,6 @@ class Automata:
             )
 
             if not estados_actuales:
-
                 return False
 
             estados_actuales = self.epsilon_closure(
@@ -231,7 +229,7 @@ class Automata:
 
         # --------------------------------------------------------
         # Marcar inicialmente los pares:
-        # uno final y otro no final
+        # un estado final y uno no final
         # --------------------------------------------------------
 
         for i in range(len(estados)):
@@ -251,7 +249,7 @@ class Automata:
                     )
 
         # --------------------------------------------------------
-        # Propagar distinguibilidad
+        # Propagar la distinguibilidad
         # --------------------------------------------------------
 
         cambio = True
@@ -297,12 +295,14 @@ class Automata:
                             None
                         )
 
+                        # Ninguno tiene transición
                         if (
                             destino1 is None
                             and destino2 is None
                         ):
                             continue
 
+                        # Uno tiene transición y el otro no
                         if (
                             destino1 is None
                             or destino2 is None
@@ -344,7 +344,7 @@ class Automata:
         pares = self.tabla_distinguibilidad()
 
         estados = sorted(
-            self.estados
+            self.estados_alcanzables()
         )
 
         grupos = []
@@ -388,48 +388,25 @@ class Automata:
                 )
 
         # --------------------------------------------------------
-        # Crear nuevo AFD
+        # Crear AFD minimizado
         # --------------------------------------------------------
 
         afd_minimo = Automata()
 
+        # Diccionario:
+        #
+        # M0 -> grupo original
+        # M1 -> grupo original
+        # M2 -> grupo original
+        #
+        # Los nombres M0, M1, M2 hacen que el
+        # diagrama sea mucho más limpio.
+
         nombres_grupos = {}
 
-        for grupo in grupos:
+        for i, grupo in enumerate(grupos):
 
-            estados_limpios = []
-
-            for estado in sorted(grupo):
-
-                # Los estados provenientes de AFN → AFD
-                # ya tienen llaves, por ejemplo:
-                # {q0,q1}
-                #
-                # Las quitamos para evitar:
-                # {{q0,q1},{q0,q2}}
-
-                if (
-                    estado.startswith("{")
-                    and estado.endswith("}")
-                ):
-
-                    estado = estado[1:-1]
-
-                estados_limpios.append(
-                    estado
-                )
-
-            # Si un grupo contiene varios estados,
-            # los mostramos separados por |
-            #
-            # Ejemplo:
-            # {q0,q2 | q0,q1,q2}
-
-            nombre = (
-                "{"
-                + " | ".join(estados_limpios)
-                + "}"
-            )
+            nombre = f"M{i}"
 
             nombres_grupos[nombre] = grupo
 
@@ -438,7 +415,7 @@ class Automata:
             )
 
         # --------------------------------------------------------
-        # Estado inicial
+        # Definir estado inicial
         # --------------------------------------------------------
 
         for nombre, grupo in nombres_grupos.items():
@@ -450,7 +427,7 @@ class Automata:
                 )
 
         # --------------------------------------------------------
-        # Estados finales
+        # Definir estados finales
         # --------------------------------------------------------
 
         for nombre, grupo in nombres_grupos.items():
@@ -465,7 +442,7 @@ class Automata:
                 )
 
         # --------------------------------------------------------
-        # Alfabeto
+        # Copiar alfabeto
         # --------------------------------------------------------
 
         for simbolo in self.alfabeto:
@@ -475,7 +452,7 @@ class Automata:
             )
 
         # --------------------------------------------------------
-        # Transiciones
+        # Crear transiciones
         # --------------------------------------------------------
 
         for nombre, grupo in nombres_grupos.items():
@@ -489,28 +466,37 @@ class Automata:
                     simbolo
                 )
 
-                if clave in self.transiciones:
+                if clave not in self.transiciones:
+                    continue
 
-                    destino = next(
-                        iter(
-                            self.transiciones[clave]
+                destinos = self.transiciones[
+                    clave
+                ]
+
+                if not destinos:
+                    continue
+
+                destino = next(
+                    iter(destinos)
+                )
+
+                # Buscar el grupo al que pertenece
+                # el estado destino.
+
+                for (
+                    nombre_destino,
+                    grupo_destino
+                ) in nombres_grupos.items():
+
+                    if destino in grupo_destino:
+
+                        afd_minimo.agregar_transicion(
+                            nombre,
+                            simbolo,
+                            nombre_destino
                         )
-                    )
 
-                    for (
-                        nombre_destino,
-                        grupo_destino
-                    ) in nombres_grupos.items():
-
-                        if destino in grupo_destino:
-
-                            afd_minimo.agregar_transicion(
-                                nombre,
-                                simbolo,
-                                nombre_destino
-                            )
-
-                            break
+                        break
 
         return afd_minimo
 
