@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import messagebox
+import textwrap
+
 from automata import Automata
+from expresiones import ExpresionRegular
 
 
 def iniciar_interfaz():
@@ -9,17 +12,13 @@ def iniciar_interfaz():
     posiciones = {}
     modo_actual = "AFN / AFD"
 
-    # ============================================================
-    # VENTANA PRINCIPAL
-    # ============================================================
-
     ventana = tk.Tk()
     ventana.title("Simulador de Autómatas")
-    ventana.geometry("1000x650")
-    ventana.minsize(900, 550)
+    ventana.geometry("1100x700")
+    ventana.minsize(950, 600)
 
     # ============================================================
-    # FUNCIONES AUXILIARES
+    # FUNCIONES GENERALES
     # ============================================================
 
     def mostrar_mensaje(texto):
@@ -36,7 +35,7 @@ def iniciar_interfaz():
         return simbolo
 
     # ============================================================
-    # CENTRAR TÍTULO DEL ÁREA DE DIBUJO
+    # CENTRAR TÍTULO
     # ============================================================
 
     def centrar_titulo(event=None):
@@ -52,8 +51,111 @@ def iniciar_interfaz():
         canvas.coords(
             "titulo",
             ancho / 2,
-            25
+            30
         )
+
+    # ============================================================
+    # FORMATO VISUAL DE ESTADOS
+    # ============================================================
+
+    def nombre_visual_estado(estado):
+
+        if len(estado) <= 12:
+            return estado
+
+        return textwrap.fill(
+            estado,
+            width=13,
+            break_long_words=False,
+            break_on_hyphens=False
+        )
+
+    # ============================================================
+    # ORGANIZAR POSICIONES
+    # ============================================================
+
+    def organizar_posiciones():
+
+        posiciones.clear()
+
+        estados = sorted(
+            automata.estados
+        )
+
+        cantidad = len(estados)
+
+        if cantidad <= 4:
+
+            columnas = 2
+
+            for i, estado in enumerate(estados):
+
+                columna = i % columnas
+                fila = i // columnas
+
+                x = 230 + columna * 430
+                y = 180 + fila * 230
+
+                posiciones[estado] = (
+                    x,
+                    y
+                )
+
+        else:
+
+            columnas = 3
+
+            for i, estado in enumerate(estados):
+
+                columna = i % columnas
+                fila = i // columnas
+
+                x = 180 + columna * 330
+                y = 160 + fila * 190
+
+                posiciones[estado] = (
+                    x,
+                    y
+                )
+
+    # ============================================================
+    # TAMAÑO DE LOS ESTADOS
+    # ============================================================
+
+    def tamaño_estado(estado):
+
+        nombre = nombre_visual_estado(
+            estado
+        )
+
+        cantidad_lineas = (
+            nombre.count("\n") + 1
+        )
+
+        if len(estado) > 20:
+
+            ancho = 80
+
+            alto = max(
+                55,
+                25 * cantidad_lineas
+            )
+
+        elif len(estado) > 12:
+
+            ancho = 65
+
+            alto = max(
+                50,
+                23 * cantidad_lineas
+            )
+
+        else:
+
+            ancho = 45
+            alto = 45
+
+        return ancho, alto
 
     # ============================================================
     # DIBUJAR AUTOMATA
@@ -63,32 +165,34 @@ def iniciar_interfaz():
 
         canvas.delete("all")
 
-        # Obtener el ancho actual del área de dibujo
         ancho_canvas = canvas.winfo_width()
 
         if ancho_canvas <= 1:
-            ancho_canvas = 650
+            ancho_canvas = 700
 
-        # ========================================================
-        # TÍTULO CENTRADO
-        # ========================================================
+        # --------------------------------------------------------
+        # TÍTULO
+        # --------------------------------------------------------
 
         canvas.create_text(
             ancho_canvas / 2,
-            25,
+            30,
             text=f"Visualización: {modo_actual}",
             font=("Arial", 16, "bold"),
             anchor="center",
             tags="titulo"
         )
 
-        # ========================================================
-        # AGRUPAR BUCLES POR ESTADO
-        # ========================================================
+        # --------------------------------------------------------
+        # AGRUPAR BUCLES
+        # --------------------------------------------------------
 
         bucles = {}
 
-        for (origen, simbolo), destinos in automata.transiciones.items():
+        for (
+            origen,
+            simbolo
+        ), destinos in automata.transiciones.items():
 
             if origen not in posiciones:
                 continue
@@ -102,27 +206,148 @@ def iniciar_interfaz():
                     simbolo_visual(simbolo)
                 )
 
-        # ========================================================
-        # DIBUJAR TRANSICIONES NORMALES
-        # ========================================================
+        # --------------------------------------------------------
+        # AGRUPAR TRANSICIONES NORMALES
+        # --------------------------------------------------------
 
-        for (origen, simbolo), destinos in automata.transiciones.items():
+        transiciones_agrupadas = {}
+
+        for (
+            origen,
+            simbolo
+        ), destinos in automata.transiciones.items():
 
             if origen not in posiciones:
                 continue
-
-            x1, y1 = posiciones[origen]
 
             for destino in destinos:
 
                 if destino not in posiciones:
                     continue
 
-                # Los bucles se dibujan aparte
                 if origen == destino:
                     continue
 
-                x2, y2 = posiciones[destino]
+                clave = (
+                    origen,
+                    destino
+                )
+
+                if clave not in transiciones_agrupadas:
+
+                    transiciones_agrupadas[
+                        clave
+                    ] = []
+
+                simbolo_actual = simbolo_visual(
+                    simbolo
+                )
+
+                if simbolo_actual not in transiciones_agrupadas[
+                    clave
+                ]:
+
+                    transiciones_agrupadas[
+                        clave
+                    ].append(
+                        simbolo_actual
+                    )
+
+        # --------------------------------------------------------
+        # DIBUJAR TRANSICIONES
+        # --------------------------------------------------------
+
+        for (
+            origen,
+            destino
+        ), simbolos in transiciones_agrupadas.items():
+
+            x1, y1 = posiciones[origen]
+            x2, y2 = posiciones[destino]
+
+            # ----------------------------------------------------
+            # COMPROBAR TRANSICIÓN INVERSA
+            # ----------------------------------------------------
+
+            existe_inversa = (
+                destino,
+                origen
+            ) in transiciones_agrupadas
+
+            texto = ", ".join(
+                simbolos
+            )
+
+            if existe_inversa:
+
+                # Vector entre los estados
+                dx = x2 - x1
+                dy = y2 - y1
+
+                distancia = max(
+                    (dx ** 2 + dy ** 2) ** 0.5,
+                    1
+                )
+
+                # Separación de las dos direcciones
+                desplazamiento = 45
+
+                offset_x = (
+                    -dy / distancia
+                ) * desplazamiento
+
+                offset_y = (
+                    dx / distancia
+                ) * desplazamiento
+
+                # Punto central desplazado
+                mx = (
+                    (x1 + x2) / 2
+                    + offset_x
+                )
+
+                my = (
+                    (y1 + y2) / 2
+                    + offset_y
+                )
+
+                # ------------------------------------------------
+                # CURVA
+                # ------------------------------------------------
+
+                canvas.create_line(
+                    x1,
+                    y1,
+                    mx,
+                    my,
+                    x2,
+                    y2,
+                    smooth=True,
+                    splinesteps=20,
+                    arrow=tk.LAST,
+                    width=2
+                )
+
+                # ------------------------------------------------
+                # TEXTO
+                # ------------------------------------------------
+
+                canvas.create_text(
+                    mx,
+                    my - 12,
+                    text=texto,
+                    font=(
+                        "Arial",
+                        11,
+                        "bold"
+                    )
+                )
+
+            else:
+
+                # ------------------------------------------------
+                # TRANSICIÓN NORMAL
+                # ------------------------------------------------
 
                 canvas.create_line(
                     x1,
@@ -133,92 +358,147 @@ def iniciar_interfaz():
                     width=2
                 )
 
-                # Texto de transición
-                mx = (x1 + x2) / 2
-                my = (y1 + y2) / 2
+                mx = (
+                    x1 + x2
+                ) / 2
+
+                my = (
+                    y1 + y2
+                ) / 2
 
                 canvas.create_text(
                     mx,
-                    my - 12,
-                    text=simbolo_visual(simbolo),
-                    font=("Arial", 11, "bold")
+                    my - 15,
+                    text=texto,
+                    font=(
+                        "Arial",
+                        11,
+                        "bold"
+                    ),
+                    fill="black"
                 )
 
-        # ========================================================
+        # --------------------------------------------------------
         # DIBUJAR BUCLES
-        # ========================================================
+        # --------------------------------------------------------
 
         for estado, simbolos in bucles.items():
 
             x, y = posiciones[estado]
 
-            # Un solo bucle por estado
+            ancho, alto = tamaño_estado(
+                estado
+            )
+
             canvas.create_oval(
-                x - 35,
-                y - 65,
-                x + 35,
-                y - 5,
+                x - ancho / 2,
+                y - alto / 2 - 45,
+                x + ancho / 2,
+                y + alto / 2 - 5,
                 outline="black",
                 width=2
             )
 
-            # Mostrar todos los símbolos del bucle
-            texto_bucle = ", ".join(simbolos)
+            texto_bucle = ", ".join(
+                simbolos
+            )
 
             canvas.create_text(
                 x,
-                y - 75,
+                y - alto / 2 - 55,
                 text=texto_bucle,
-                font=("Arial", 11, "bold")
+                font=(
+                    "Arial",
+                    11,
+                    "bold"
+                )
             )
 
-        # ========================================================
+        # --------------------------------------------------------
         # DIBUJAR ESTADOS
-        # ========================================================
+        # --------------------------------------------------------
 
-        for estado, (x, y) in posiciones.items():
+        for estado, (
+            x,
+            y
+        ) in posiciones.items():
 
-            # Estado inicial
+            ancho, alto = tamaño_estado(
+                estado
+            )
+
+            # ----------------------------------------------------
+            # FLECHA DEL ESTADO INICIAL
+            # ----------------------------------------------------
+
             if estado == automata.estado_inicial:
 
                 canvas.create_line(
-                    x - 70,
+                    x - ancho - 45,
                     y,
-                    x - 40,
+                    x - ancho,
                     y,
                     arrow=tk.LAST,
                     width=2
                 )
 
-            # Estado
+            # ----------------------------------------------------
+            # CÍRCULO DEL ESTADO
+            # ----------------------------------------------------
+
             canvas.create_oval(
-                x - 40,
-                y - 40,
-                x + 40,
-                y + 40,
+                x - ancho,
+                y - alto,
+                x + ancho,
+                y + alto,
                 fill="white",
                 outline="black",
                 width=2
             )
 
-            # Estado final
+            # ----------------------------------------------------
+            # ESTADO FINAL
+            # ----------------------------------------------------
+
             if estado in automata.estados_finales:
 
                 canvas.create_oval(
-                    x - 34,
-                    y - 34,
-                    x + 34,
-                    y + 34,
+                    x - ancho + 7,
+                    y - alto + 7,
+                    x + ancho - 7,
+                    y + alto - 7,
                     outline="black",
                     width=2
                 )
 
+            # ----------------------------------------------------
+            # NOMBRE DEL ESTADO
+            # ----------------------------------------------------
+
+            tamaño_fuente = 9
+
+            if len(estado) <= 12:
+                tamaño_fuente = 10
+
             canvas.create_text(
                 x,
                 y,
-                text=estado,
-                font=("Arial", 11, "bold")
+                text=nombre_visual_estado(
+                    estado
+                ),
+                font=(
+                    "Arial",
+                    tamaño_fuente,
+                    "bold"
+                ),
+                justify="center"
             )
+
+        # --------------------------------------------------------
+        # ACTUALIZAR ÁREA DESPLAZABLE
+        # --------------------------------------------------------
+
+        actualizar_scroll_derecho()
 
     # ============================================================
     # AGREGAR ESTADO
@@ -234,6 +514,7 @@ def iniciar_interfaz():
                 "Error",
                 "Ingrese el nombre del estado."
             )
+
             return
 
         if estado in automata.estados:
@@ -242,20 +523,36 @@ def iniciar_interfaz():
                 "Error",
                 "Ese estado ya existe."
             )
+
             return
 
-        automata.agregar_estado(estado)
+        automata.agregar_estado(
+            estado
+        )
 
         cantidad = len(posiciones)
 
         columnas = 4
 
-        x = 120 + (cantidad % columnas) * 180
-        y = 150 + (cantidad // columnas) * 150
+        x = (
+            120
+            + (cantidad % columnas) * 180
+        )
 
-        posiciones[estado] = (x, y)
+        y = (
+            150
+            + (cantidad // columnas) * 150
+        )
 
-        entrada_estado.delete(0, tk.END)
+        posiciones[estado] = (
+            x,
+            y
+        )
+
+        entrada_estado.delete(
+            0,
+            tk.END
+        )
 
         mostrar_mensaje(
             f"Estado '{estado}' agregado correctamente."
@@ -277,9 +574,12 @@ def iniciar_interfaz():
                 "Error",
                 "Ingrese un símbolo."
             )
+
             return
 
-        simbolo = normalizar_simbolo(simbolo)
+        simbolo = normalizar_simbolo(
+            simbolo
+        )
 
         if simbolo == "e":
 
@@ -287,6 +587,7 @@ def iniciar_interfaz():
                 "Error",
                 "La letra 'e' se utiliza para representar ε."
             )
+
             return
 
         if len(simbolo) != 1:
@@ -295,6 +596,7 @@ def iniciar_interfaz():
                 "Error",
                 "Ingrese solamente un símbolo."
             )
+
             return
 
         if simbolo in automata.alfabeto:
@@ -303,78 +605,21 @@ def iniciar_interfaz():
                 "Error",
                 "Ese símbolo ya existe."
             )
+
             return
 
-        automata.agregar_simbolo(simbolo)
+        automata.agregar_simbolo(
+            simbolo
+        )
 
-        entrada_simbolo.delete(0, tk.END)
+        entrada_simbolo.delete(
+            0,
+            tk.END
+        )
 
         mostrar_mensaje(
             f"Símbolo '{simbolo}' agregado correctamente."
         )
-
-    # ============================================================
-    # AGREGAR TRANSICIÓN
-    # ============================================================
-
-    def agregar_transicion():
-
-        origen = entrada_origen.get().strip()
-        simbolo = entrada_transicion.get().strip()
-        destino = entrada_destino.get().strip()
-
-        if not origen or not simbolo or not destino:
-
-            messagebox.showerror(
-                "Error",
-                "Complete todos los campos de la transición."
-            )
-            return
-
-        if origen not in automata.estados:
-
-            messagebox.showerror(
-                "Error",
-                f"El estado '{origen}' no existe."
-            )
-            return
-
-        if destino not in automata.estados:
-
-            messagebox.showerror(
-                "Error",
-                f"El estado '{destino}' no existe."
-            )
-            return
-
-        simbolo = normalizar_simbolo(simbolo)
-
-        try:
-
-            automata.agregar_transicion(
-                origen,
-                simbolo,
-                destino
-            )
-
-        except ValueError as error:
-
-            messagebox.showerror(
-                "Error",
-                str(error)
-            )
-            return
-
-        entrada_origen.delete(0, tk.END)
-        entrada_transicion.delete(0, tk.END)
-        entrada_destino.delete(0, tk.END)
-
-        mostrar_mensaje(
-            f"Transición agregada: "
-            f"{origen} --{simbolo_visual(simbolo)}--> {destino}"
-        )
-
-        dibujar_automata()
 
     # ============================================================
     # DEFINIR ESTADO INICIAL
@@ -390,11 +635,14 @@ def iniciar_interfaz():
                 "Error",
                 "Ingrese un estado."
             )
+
             return
 
         try:
 
-            automata.definir_inicial(estado)
+            automata.definir_inicial(
+                estado
+            )
 
         except ValueError as error:
 
@@ -402,9 +650,13 @@ def iniciar_interfaz():
                 "Error",
                 str(error)
             )
+
             return
 
-        entrada_inicial.delete(0, tk.END)
+        entrada_inicial.delete(
+            0,
+            tk.END
+        )
 
         mostrar_mensaje(
             f"Estado inicial: {estado}"
@@ -426,11 +678,14 @@ def iniciar_interfaz():
                 "Error",
                 "Ingrese un estado."
             )
+
             return
 
         try:
 
-            automata.agregar_final(estado)
+            automata.agregar_final(
+                estado
+            )
 
         except ValueError as error:
 
@@ -438,12 +693,102 @@ def iniciar_interfaz():
                 "Error",
                 str(error)
             )
+
             return
 
-        entrada_final.delete(0, tk.END)
+        entrada_final.delete(
+            0,
+            tk.END
+        )
 
         mostrar_mensaje(
             f"Estado final: {estado}"
+        )
+
+        dibujar_automata()
+
+    # ============================================================
+    # AGREGAR TRANSICIÓN
+    # ============================================================
+
+    def agregar_transicion():
+
+        origen = entrada_origen.get().strip()
+
+        simbolo = (
+            entrada_transicion
+            .get()
+            .strip()
+        )
+
+        destino = entrada_destino.get().strip()
+
+        if not origen or not simbolo or not destino:
+
+            messagebox.showerror(
+                "Error",
+                "Complete todos los campos de la transición."
+            )
+
+            return
+
+        if origen not in automata.estados:
+
+            messagebox.showerror(
+                "Error",
+                f"El estado '{origen}' no existe."
+            )
+
+            return
+
+        if destino not in automata.estados:
+
+            messagebox.showerror(
+                "Error",
+                f"El estado '{destino}' no existe."
+            )
+
+            return
+
+        simbolo = normalizar_simbolo(
+            simbolo
+        )
+
+        try:
+
+            automata.agregar_transicion(
+                origen,
+                simbolo,
+                destino
+            )
+
+        except ValueError as error:
+
+            messagebox.showerror(
+                "Error",
+                str(error)
+            )
+
+            return
+
+        entrada_origen.delete(
+            0,
+            tk.END
+        )
+
+        entrada_transicion.delete(
+            0,
+            tk.END
+        )
+
+        entrada_destino.delete(
+            0,
+            tk.END
+        )
+
+        mostrar_mensaje(
+            f"Transición agregada: "
+            f"{origen} --{simbolo_visual(simbolo)}--> {destino}"
         )
 
         dibujar_automata()
@@ -458,7 +803,9 @@ def iniciar_interfaz():
 
         try:
 
-            resultado = automata.simular(cadena)
+            resultado = automata.simular(
+                cadena
+            )
 
         except ValueError as error:
 
@@ -466,6 +813,7 @@ def iniciar_interfaz():
                 "Error",
                 str(error)
             )
+
             return
 
         if resultado:
@@ -485,16 +833,91 @@ def iniciar_interfaz():
         )
 
     # ============================================================
+    # GENERAR AFN DESDE EXPRESIÓN REGULAR
+    # ============================================================
+
+    def generar_afn_regex():
+
+        nonlocal automata
+        nonlocal posiciones
+        nonlocal modo_actual
+
+        expresion = entrada_regex.get().strip()
+
+        if not expresion:
+
+            messagebox.showerror(
+                "Expresión regular",
+                "Ingrese una expresión regular."
+            )
+
+            return
+
+        try:
+
+            expresion_regular = (
+                ExpresionRegular(
+                    expresion
+                )
+            )
+
+            nuevo_automata = (
+                expresion_regular
+                .convertir_a_afn()
+            )
+
+        except ValueError as error:
+
+            messagebox.showerror(
+                "Expresión regular inválida",
+                str(error)
+            )
+
+            return
+
+        except Exception as error:
+
+            messagebox.showerror(
+                "Error",
+                f"No se pudo generar el AFN:\n{error}"
+            )
+
+            return
+
+        automata = nuevo_automata
+
+        modo_actual = (
+            "AFN GENERADO DESDE REGEX"
+        )
+
+        organizar_posiciones()
+
+        etiqueta_resultado.config(
+            text=""
+        )
+
+        mostrar_mensaje(
+            f"AFN generado correctamente desde: {expresion}"
+        )
+
+        dibujar_automata()
+
+    # ============================================================
     # CONVERTIR AFN → AFD
     # ============================================================
 
     def convertir_a_afd():
 
-        nonlocal automata, posiciones, modo_actual
+        nonlocal automata
+        nonlocal posiciones
+        nonlocal modo_actual
 
         try:
 
-            afd = automata.convertir_a_afd()
+            afd = (
+                automata
+                .convertir_a_afd()
+            )
 
         except ValueError as error:
 
@@ -502,23 +925,16 @@ def iniciar_interfaz():
                 "Error de conversión",
                 str(error)
             )
+
             return
 
         automata = afd
-        modo_actual = "AFD CONVERTIDO"
 
-        posiciones.clear()
+        modo_actual = (
+            "AFD CONVERTIDO"
+        )
 
-        estados = sorted(automata.estados)
-
-        columnas = 3
-
-        for i, estado in enumerate(estados):
-
-            x = 150 + (i % columnas) * 280
-            y = 150 + (i // columnas) * 180
-
-            posiciones[estado] = (x, y)
+        organizar_posiciones()
 
         etiqueta_resultado.config(
             text=""
@@ -536,11 +952,16 @@ def iniciar_interfaz():
 
     def minimizar_afd():
 
-        nonlocal automata, posiciones, modo_actual
+        nonlocal automata
+        nonlocal posiciones
+        nonlocal modo_actual
 
         try:
 
-            afd_minimo = automata.minimizar_afd()
+            afd_minimo = (
+                automata
+                .minimizar_afd()
+            )
 
         except Exception as error:
 
@@ -548,23 +969,16 @@ def iniciar_interfaz():
                 "Error de minimización",
                 str(error)
             )
+
             return
 
         automata = afd_minimo
-        modo_actual = "AFD MINIMIZADO"
 
-        posiciones.clear()
+        modo_actual = (
+            "AFD MINIMIZADO"
+        )
 
-        estados = sorted(automata.estados)
-
-        columnas = 3
-
-        for i, estado in enumerate(estados):
-
-            x = 150 + (i % columnas) * 280
-            y = 150 + (i // columnas) * 180
-
-            posiciones[estado] = (x, y)
+        organizar_posiciones()
 
         etiqueta_resultado.config(
             text=""
@@ -577,12 +991,14 @@ def iniciar_interfaz():
         dibujar_automata()
 
     # ============================================================
-    # LIMPIAR AUTOMATA
+    # LIMPIAR AUTÓMATA
     # ============================================================
 
     def limpiar_automata():
 
-        nonlocal automata, posiciones, modo_actual
+        nonlocal automata
+        nonlocal posiciones
+        nonlocal modo_actual
 
         respuesta = messagebox.askyesno(
             "Limpiar",
@@ -593,8 +1009,20 @@ def iniciar_interfaz():
             return
 
         automata = Automata()
+
         posiciones.clear()
+
         modo_actual = "AFN / AFD"
+
+        entrada_regex.delete(
+            0,
+            tk.END
+        )
+
+        entrada_cadena.delete(
+            0,
+            tk.END
+        )
 
         etiqueta_resultado.config(
             text=""
@@ -607,7 +1035,7 @@ def iniciar_interfaz():
         dibujar_automata()
 
     # ============================================================
-    # PANEL IZQUIERDO CON DESPLAZAMIENTO
+    # PANEL IZQUIERDO
     # ============================================================
 
     marco_panel = tk.Frame(
@@ -623,7 +1051,6 @@ def iniciar_interfaz():
 
     marco_panel.pack_propagate(False)
 
-    # Canvas del panel
     canvas_panel = tk.Canvas(
         marco_panel,
         bg="#eeeeee",
@@ -636,7 +1063,6 @@ def iniciar_interfaz():
         expand=True
     )
 
-    # Barra de desplazamiento
     scrollbar = tk.Scrollbar(
         marco_panel,
         orient=tk.VERTICAL,
@@ -652,7 +1078,6 @@ def iniciar_interfaz():
         yscrollcommand=scrollbar.set
     )
 
-    # Panel interno
     panel = tk.Frame(
         canvas_panel,
         bg="#eeeeee"
@@ -667,7 +1092,9 @@ def iniciar_interfaz():
     def actualizar_scroll(event=None):
 
         canvas_panel.configure(
-            scrollregion=canvas_panel.bbox("all")
+            scrollregion=canvas_panel.bbox(
+                "all"
+            )
         )
 
     panel.bind(
@@ -687,21 +1114,48 @@ def iniciar_interfaz():
         ajustar_ancho_panel
     )
 
-    # Desplazamiento con rueda del mouse
+    # ============================================================
+    # DESPLAZAMIENTO CON RUEDA DEL MOUSE
+    # ============================================================
+
     def desplazamiento_mouse(event):
 
-        canvas_panel.yview_scroll(
-            int(-1 * (event.delta / 120)),
-            "units"
+        widget = ventana.winfo_containing(
+            event.x_root,
+            event.y_root
         )
 
-    canvas_panel.bind_all(
+        while widget is not None:
+
+            if widget == canvas_panel:
+
+                canvas_panel.yview_scroll(
+                    int(-1 * (event.delta / 120)),
+                    "units"
+                )
+
+                return "break"
+
+            if widget == canvas:
+
+                canvas.yview_scroll(
+                    int(-1 * (event.delta / 120)),
+                    "units"
+                )
+
+                return "break"
+
+            widget = widget.master
+
+        return None
+
+    ventana.bind_all(
         "<MouseWheel>",
         desplazamiento_mouse
     )
 
     # ============================================================
-    # CONTROLES DEL PANEL
+    # TÍTULO DEL PANEL
     # ============================================================
 
     titulo = tk.Label(
@@ -720,16 +1174,56 @@ def iniciar_interfaz():
         padx=10
     )
 
-    # ------------------------------------------------------------
+    # ============================================================
+    # EXPRESIÓN REGULAR
+    # ============================================================
+
+    tk.Label(
+        panel,
+        text="Expresión regular",
+        font=("Arial", 11, "bold"),
+        bg="#eeeeee"
+    ).pack(
+        pady=(5, 0)
+    )
+
+    entrada_regex = tk.Entry(
+        panel,
+        width=25
+    )
+
+    entrada_regex.pack(
+        pady=5
+    )
+
+    tk.Label(
+        panel,
+        text="Ejemplo: (0|1)*01",
+        font=("Arial", 9),
+        bg="#eeeeee"
+    ).pack()
+
+    tk.Button(
+        panel,
+        text="Generar AFN desde Regex",
+        width=22,
+        command=generar_afn_regex
+    ).pack(
+        pady=5
+    )
+
+    # ============================================================
     # ESTADOS
-    # ------------------------------------------------------------
+    # ============================================================
 
     tk.Label(
         panel,
         text="Agregar estado",
         font=("Arial", 11, "bold"),
         bg="#eeeeee"
-    ).pack()
+    ).pack(
+        pady=(15, 0)
+    )
 
     entrada_estado = tk.Entry(
         panel,
@@ -749,9 +1243,9 @@ def iniciar_interfaz():
         pady=3
     )
 
-    # ------------------------------------------------------------
+    # ============================================================
     # ESTADO INICIAL
-    # ------------------------------------------------------------
+    # ============================================================
 
     tk.Label(
         panel,
@@ -780,9 +1274,9 @@ def iniciar_interfaz():
         pady=3
     )
 
-    # ------------------------------------------------------------
+    # ============================================================
     # ESTADO FINAL
-    # ------------------------------------------------------------
+    # ============================================================
 
     tk.Label(
         panel,
@@ -811,9 +1305,9 @@ def iniciar_interfaz():
         pady=3
     )
 
-    # ------------------------------------------------------------
+    # ============================================================
     # ALFABETO
-    # ------------------------------------------------------------
+    # ============================================================
 
     tk.Label(
         panel,
@@ -842,9 +1336,9 @@ def iniciar_interfaz():
         pady=3
     )
 
-    # ------------------------------------------------------------
+    # ============================================================
     # TRANSICIÓN
-    # ------------------------------------------------------------
+    # ============================================================
 
     tk.Label(
         panel,
@@ -898,9 +1392,9 @@ def iniciar_interfaz():
         pady=5
     )
 
-    # ------------------------------------------------------------
-    # SIMULACIÓN
-    # ------------------------------------------------------------
+    # ============================================================
+    # SIMULAR CADENA
+    # ============================================================
 
     tk.Label(
         panel,
@@ -929,9 +1423,9 @@ def iniciar_interfaz():
         pady=3
     )
 
-    # ------------------------------------------------------------
+    # ============================================================
     # TRANSFORMACIONES
-    # ------------------------------------------------------------
+    # ============================================================
 
     tk.Label(
         panel,
@@ -960,9 +1454,9 @@ def iniciar_interfaz():
         pady=3
     )
 
-    # ------------------------------------------------------------
+    # ============================================================
     # LIMPIAR
-    # ------------------------------------------------------------
+    # ============================================================
 
     tk.Button(
         panel,
@@ -973,9 +1467,9 @@ def iniciar_interfaz():
         pady=(15, 5)
     )
 
-    # ------------------------------------------------------------
+    # ============================================================
     # MENSAJE
-    # ------------------------------------------------------------
+    # ============================================================
 
     etiqueta_mensaje = tk.Label(
         panel,
@@ -1005,10 +1499,6 @@ def iniciar_interfaz():
         expand=True
     )
 
-    # ------------------------------------------------------------
-    # RESULTADO
-    # ------------------------------------------------------------
-
     etiqueta_resultado = tk.Label(
         marco_derecho,
         text="",
@@ -1020,40 +1510,164 @@ def iniciar_interfaz():
         pady=15
     )
 
-    # ------------------------------------------------------------
-    # CANVAS DEL AUTOMATA
-    # ------------------------------------------------------------
+    # ============================================================
+    # ÁREA DEL AUTÓMATA
+    # ============================================================
 
-    canvas = tk.Canvas(
+    marco_canvas = tk.Frame(
         marco_derecho,
         bg="white"
     )
 
+    marco_canvas.pack(
+        fill=tk.BOTH,
+        expand=True
+    )
+
+    # ------------------------------------------------------------
+    # CANVAS
+    # ------------------------------------------------------------
+
+    canvas = tk.Canvas(
+        marco_canvas,
+        bg="white",
+        highlightthickness=0
+    )
+
     canvas.pack(
+        side=tk.TOP,
         fill=tk.BOTH,
         expand=True,
         padx=10,
-        pady=10
+        pady=(10, 0)
     )
 
-    # Actualizar posición del título cuando cambie
-    # el tamaño del área de dibujo
+    # ------------------------------------------------------------
+    # BARRA VERTICAL
+    # ------------------------------------------------------------
+
+    scrollbar_derecha = tk.Scrollbar(
+        marco_canvas,
+        orient=tk.VERTICAL,
+        command=canvas.yview
+    )
+
+    scrollbar_derecha.pack(
+        side=tk.RIGHT,
+        fill=tk.Y,
+        pady=(10, 0)
+    )
+
+    # ------------------------------------------------------------
+    # BARRA HORIZONTAL
+    # ------------------------------------------------------------
+
+    scrollbar_horizontal = tk.Scrollbar(
+        marco_derecho,
+        orient=tk.HORIZONTAL,
+        command=canvas.xview
+    )
+
+    scrollbar_horizontal.pack(
+        side=tk.BOTTOM,
+        fill=tk.X,
+        padx=10,
+        pady=(0, 10)
+    )
+
+    # ------------------------------------------------------------
+    # CONECTAR SCROLLBARS
+    # ------------------------------------------------------------
+
+    canvas.configure(
+        yscrollcommand=scrollbar_derecha.set,
+        xscrollcommand=scrollbar_horizontal.set
+    )
+
+    # ============================================================
+    # ACTUALIZAR ÁREA DE DESPLAZAMIENTO
+    # ============================================================
+
+    def actualizar_scroll_derecho():
+
+        ancho_visible = canvas.winfo_width()
+        alto_visible = canvas.winfo_height()
+
+        if ancho_visible <= 1:
+            ancho_visible = 800
+
+        if alto_visible <= 1:
+            alto_visible = 600
+
+        ancho_maximo = max(
+            ancho_visible,
+            1000
+        )
+
+        alto_maximo = max(
+            alto_visible,
+            650
+        )
+
+        if posiciones:
+
+            ancho_necesario = max(
+                x
+                for x, y in posiciones.values()
+            ) + 180
+
+            alto_necesario = max(
+                y
+                for x, y in posiciones.values()
+            ) + 180
+
+            ancho_maximo = max(
+                ancho_maximo,
+                ancho_necesario
+            )
+
+            alto_maximo = max(
+                alto_maximo,
+                alto_necesario
+            )
+
+        canvas.configure(
+            scrollregion=(
+                0,
+                0,
+                ancho_maximo,
+                alto_maximo
+            )
+        )
+
+    # ============================================================
+    # ACTUALIZAR SCROLL AL CAMBIAR TAMAÑO
+    # ============================================================
+
+    def actualizar_canvas(event=None):
+
+        centrar_titulo()
+        actualizar_scroll_derecho()
+
     canvas.bind(
         "<Configure>",
-        centrar_titulo
+        actualizar_canvas
     )
 
     # ============================================================
     # INICIAR
     # ============================================================
 
+    ventana.update_idletasks()
+
     dibujar_automata()
+    actualizar_scroll_derecho()
 
     ventana.mainloop()
 
 
 # ================================================================
-# EJECUCIÓN
+# EJECUCIÓN PRINCIPAL
 # ================================================================
 
 if __name__ == "__main__":
