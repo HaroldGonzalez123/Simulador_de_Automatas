@@ -1,420 +1,422 @@
+
 from automata import Automata
 
 
 class ExpresionRegular:
+    """
+    Convierte expresiones regulares en un AFN
+    utilizando el algoritmo de Thompson.
 
-    # ============================================================
-    # CONSTRUCTOR
-    # ============================================================
+    Operadores admitidos:
+        |       Unión
+        *       Cerradura de Kleene
+        (...)   Agrupación
+        AB      Concatenación implícita
+
+    Ejemplo:
+        (0|1)*01
+    """
+
+    CONCAT = "\u00b7"
 
     def __init__(self, expresion):
+        if not isinstance(expresion, str):
+            raise ValueError(
+                "La expresión regular debe ser texto."
+            )
+
         self.expresion = expresion.replace(" ", "")
 
-    # ============================================================
-    # DETERMINAR SI ES UN OPERANDO
-    # ============================================================
+        if not self.expresion:
+            raise ValueError(
+                "La expresión regular no puede estar vacía."
+            )
 
-    @staticmethod
-    def es_operando(caracter):
+        self._validar_expresion()
 
-        return caracter not in {
+    # ---------------------------------------------------------
+    # IDENTIFICAR OPERANDOS
+    # ---------------------------------------------------------
+
+    def _es_operando(self, simbolo):
+        """
+        Un operando es cualquier símbolo que no sea
+        un operador ni el símbolo interno de concatenación.
+        """
+
+        return simbolo not in (
             "|",
-            ".",
             "*",
             "(",
-            ")"
-        }
+            ")",
+            self.CONCAT
+        )
 
-    # ============================================================
-    # AGREGAR CONCATENACIÓN EXPLÍCITA
-    # ============================================================
+    # ---------------------------------------------------------
+    # VALIDAR EXPRESIÓN
+    # ---------------------------------------------------------
 
-    def agregar_concatenacion(self):
+    def _validar_expresion(self):
 
-        resultado = ""
+        expresion = self.expresion
+        balance = 0
+        espera_operando = True
 
-        for i, actual in enumerate(self.expresion):
+        for simbolo in expresion:
 
-            resultado += actual
+            if simbolo == "(":
 
-            if i + 1 >= len(self.expresion):
-                continue
+                if not espera_operando:
+                    raise ValueError(
+                        "Falta un operador antes de '('."
+                    )
 
-            siguiente = self.expresion[i + 1]
+                balance += 1
+                espera_operando = True
 
-            izquierda_valida = (
-                self.es_operando(actual)
-                or actual == ")"
-                or actual == "*"
+            elif simbolo == ")":
+
+                if espera_operando:
+                    raise ValueError(
+                        "Hay un paréntesis vacío "
+                        "o un operador incompleto."
+                    )
+
+                balance -= 1
+
+                if balance < 0:
+                    raise ValueError(
+                        "Hay paréntesis desbalanceados."
+                    )
+
+                espera_operando = False
+
+            elif simbolo == "|":
+
+                if espera_operando:
+                    raise ValueError(
+                        "La unión '|' necesita "
+                        "operandos a ambos lados."
+                    )
+
+                espera_operando = True
+
+            elif simbolo == "*":
+
+                if espera_operando:
+                    raise ValueError(
+                        "El operador '*' necesita "
+                        "un operando anterior."
+                    )
+
+                espera_operando = False
+
+            else:
+                espera_operando = False
+
+        if balance != 0:
+            raise ValueError(
+                "Hay paréntesis desbalanceados."
             )
 
-            derecha_valida = (
-                self.es_operando(siguiente)
-                or siguiente == "("
+        if espera_operando:
+            raise ValueError(
+                "La expresión termina con un operador "
+                "incompleto."
             )
 
-            if izquierda_valida and derecha_valida:
-                resultado += "."
+    # ---------------------------------------------------------
+    # INSERTAR CONCATENACIONES
+    # ---------------------------------------------------------
+
+    def _agregar_concatenaciones(self):
+        """
+        Inserta concatenación explícita.
+
+        Ejemplos:
+            01       -> 0 · 1
+            (0|1)0   -> (0|1) · 0
+            0(1|0)   -> 0 · (1|0)
+        """
+
+        resultado = []
+        anterior = None
+
+        for actual in self.expresion:
+
+            if anterior is not None:
+
+                anterior_termina = (
+                    self._es_operando(anterior)
+                    or anterior == ")"
+                    or anterior == "*"
+                )
+
+                actual_empieza = (
+                    self._es_operando(actual)
+                    or actual == "("
+                )
+
+                if anterior_termina and actual_empieza:
+                    resultado.append(self.CONCAT)
+
+            resultado.append(actual)
+            anterior = actual
 
         return resultado
 
-    # ============================================================
-    # PRECEDENCIA DE OPERADORES
-    # ============================================================
+    # ---------------------------------------------------------
+    # CONVERTIR A NOTACIÓN POSTFIJA
+    # ---------------------------------------------------------
 
-    @staticmethod
-    def precedencia(operador):
+    def _a_postfija(self):
 
-        if operador == "|":
-            return 1
-
-        if operador == ".":
-            return 2
-
-        if operador == "*":
-            return 3
-
-        return 0
-
-    # ============================================================
-    # CONVERTIR INFIX → POSTFIX
-    # ============================================================
-
-    def a_postfija(self):
-
-        expresion = self.agregar_concatenacion()
+        precedencia = {
+            "|": 1,
+            self.CONCAT: 2,
+            "*": 3
+        }
 
         salida = []
         operadores = []
 
-        for caracter in expresion:
+        for simbolo in self._agregar_concatenaciones():
 
-            # ----------------------------------------------------
-            # OPERANDO
-            # ----------------------------------------------------
+            if self._es_operando(simbolo):
 
-            if self.es_operando(caracter):
+                salida.append(simbolo)
 
-                salida.append(caracter)
+            elif simbolo == "(":
 
-            # ----------------------------------------------------
-            # PARÉNTESIS IZQUIERDO
-            # ----------------------------------------------------
+                operadores.append(simbolo)
 
-            elif caracter == "(":
-
-                operadores.append(caracter)
-
-            # ----------------------------------------------------
-            # PARÉNTESIS DERECHO
-            # ----------------------------------------------------
-
-            elif caracter == ")":
-
-                encontrado_parentesis = False
-
-                while operadores:
-
-                    operador = operadores.pop()
-
-                    if operador == "(":
-
-                        encontrado_parentesis = True
-                        break
-
-                    salida.append(operador)
-
-                if not encontrado_parentesis:
-
-                    raise ValueError(
-                        "Paréntesis desbalanceados."
-                    )
-
-            # ----------------------------------------------------
-            # OPERADORES
-            # ----------------------------------------------------
-
-            elif caracter in {"|", ".", "*"}:
-
-                # La estrella de Kleene es unaria
-                if caracter == "*":
-
-                    if not salida:
-
-                        raise ValueError(
-                            "El operador * no tiene un operando."
-                        )
-
-                    salida.append("*")
-
-                    continue
+            elif simbolo == ")":
 
                 while (
                     operadores
                     and operadores[-1] != "("
-                    and self.precedencia(
-                        operadores[-1]
-                    ) >= self.precedencia(caracter)
                 ):
-
                     salida.append(
                         operadores.pop()
                     )
 
-                operadores.append(caracter)
+                if not operadores:
+                    raise ValueError(
+                        "Paréntesis incorrectos."
+                    )
+
+                operadores.pop()
 
             else:
 
-                raise ValueError(
-                    f"Símbolo no reconocido: {caracter}"
-                )
+                while (
+                    operadores
+                    and operadores[-1] != "("
+                    and precedencia[operadores[-1]]
+                    >= precedencia[simbolo]
+                ):
+                    salida.append(
+                        operadores.pop()
+                    )
 
-        # --------------------------------------------------------
-        # VACIAR OPERADORES
-        # --------------------------------------------------------
+                operadores.append(simbolo)
 
         while operadores:
 
             operador = operadores.pop()
 
-            if operador in {"(", ")"}:
-
+            if operador in ("(", ")"):
                 raise ValueError(
-                    "Paréntesis desbalanceados."
+                    "Paréntesis incorrectos."
                 )
 
             salida.append(operador)
 
         return salida
 
-    # ============================================================
-    # CONSTRUCCIÓN DE THOMPSON
-    # ============================================================
+    # ---------------------------------------------------------
+    # CONVERTIR EXPRESIÓN REGULAR A AFN
+    # ---------------------------------------------------------
 
     def convertir_a_afn(self):
+        """
+        Construye un AFN mediante el algoritmo de Thompson.
+        Las transiciones epsilon se representan internamente
+        con el símbolo 'e'.
+        """
 
-        postfija = self.a_postfija()
-
-        if not postfija:
-
-            raise ValueError(
-                "La expresión regular está vacía."
-            )
+        postfija = self._a_postfija()
 
         automata = Automata()
-
-        contador_estado = 0
-
         pila = []
-
-        # --------------------------------------------------------
-        # CREAR NUEVO ESTADO
-        # --------------------------------------------------------
+        contador = 0
 
         def nuevo_estado():
 
-            nonlocal contador_estado
+            nonlocal contador
 
-            estado = f"q{contador_estado}"
+            estado = f"r{contador}"
+            contador += 1
 
-            contador_estado += 1
-
-            automata.agregar_estado(
-                estado
-            )
+            automata.agregar_estado(estado)
 
             return estado
 
-        # --------------------------------------------------------
-        # PROCESAR EXPRESIÓN POSTFIJA
-        # --------------------------------------------------------
+        def agregar_epsilon(origen, destino):
 
-        for token in postfija:
+            automata.agregar_transicion(
+                origen,
+                "e",
+                destino
+            )
 
-            # ====================================================
+        for simbolo in postfija:
+
+            # -------------------------------------------------
             # OPERANDO
-            # ====================================================
+            # -------------------------------------------------
 
-            if self.es_operando(token):
+            if self._es_operando(simbolo):
 
-                inicio = nuevo_estado()
-                fin = nuevo_estado()
+                inicial = nuevo_estado()
+                final = nuevo_estado()
 
-                if token == "ε":
+                automata.agregar_simbolo(simbolo)
 
-                    automata.agregar_transicion(
-                        inicio,
-                        "e",
-                        fin
-                    )
-
-                else:
-
-                    automata.agregar_simbolo(
-                        token
-                    )
-
-                    automata.agregar_transicion(
-                        inicio,
-                        token,
-                        fin
-                    )
-
-                pila.append(
-                    (inicio, fin)
+                automata.agregar_transicion(
+                    inicial,
+                    simbolo,
+                    final
                 )
 
-            # ====================================================
+                pila.append(
+                    (inicial, final)
+                )
+
+            # -------------------------------------------------
             # CONCATENACIÓN
-            # ====================================================
+            # -------------------------------------------------
 
-            elif token == ".":
+            elif simbolo == self.CONCAT:
 
                 if len(pila) < 2:
-
                     raise ValueError(
-                        "Error en la concatenación."
+                        "Concatenación inválida."
                     )
 
-                segundo = pila.pop()
-                primero = pila.pop()
+                fragmento_b = pila.pop()
+                fragmento_a = pila.pop()
 
-                automata.agregar_transicion(
-                    primero[1],
-                    "e",
-                    segundo[0]
+                agregar_epsilon(
+                    fragmento_a[1],
+                    fragmento_b[0]
                 )
 
                 pila.append(
                     (
-                        primero[0],
-                        segundo[1]
+                        fragmento_a[0],
+                        fragmento_b[1]
                     )
                 )
 
-            # ====================================================
+            # -------------------------------------------------
             # UNIÓN
-            # ====================================================
+            # -------------------------------------------------
 
-            elif token == "|":
+            elif simbolo == "|":
 
                 if len(pila) < 2:
-
                     raise ValueError(
-                        "Error en la unión."
+                        "Unión inválida."
                     )
 
-                segundo = pila.pop()
-                primero = pila.pop()
+                fragmento_b = pila.pop()
+                fragmento_a = pila.pop()
 
-                inicio = nuevo_estado()
-                fin = nuevo_estado()
+                inicial = nuevo_estado()
+                final = nuevo_estado()
 
-                # Inicio → primero
-                automata.agregar_transicion(
-                    inicio,
-                    "e",
-                    primero[0]
+                agregar_epsilon(
+                    inicial,
+                    fragmento_a[0]
                 )
 
-                # Inicio → segundo
-                automata.agregar_transicion(
-                    inicio,
-                    "e",
-                    segundo[0]
+                agregar_epsilon(
+                    inicial,
+                    fragmento_b[0]
                 )
 
-                # Primero → fin
-                automata.agregar_transicion(
-                    primero[1],
-                    "e",
-                    fin
+                agregar_epsilon(
+                    fragmento_a[1],
+                    final
                 )
 
-                # Segundo → fin
-                automata.agregar_transicion(
-                    segundo[1],
-                    "e",
-                    fin
+                agregar_epsilon(
+                    fragmento_b[1],
+                    final
                 )
 
                 pila.append(
-                    (
-                        inicio,
-                        fin
-                    )
+                    (inicial, final)
                 )
 
-            # ====================================================
-            # ESTRELLA DE KLEENE
-            # ====================================================
+            # -------------------------------------------------
+            # CERRADURA DE KLEENE
+            # -------------------------------------------------
 
-            elif token == "*":
+            elif simbolo == "*":
 
-                if len(pila) < 1:
-
+                if not pila:
                     raise ValueError(
-                        "Error en la estrella de Kleene."
+                        "Cerradura de Kleene inválida."
                     )
 
                 fragmento = pila.pop()
 
-                inicio = nuevo_estado()
-                fin = nuevo_estado()
+                inicial = nuevo_estado()
+                final = nuevo_estado()
 
-                # Inicio → fragmento
-                automata.agregar_transicion(
-                    inicio,
-                    "e",
+                # Permite entrar al fragmento
+                agregar_epsilon(
+                    inicial,
                     fragmento[0]
                 )
 
-                # Inicio → fin
-                automata.agregar_transicion(
-                    inicio,
-                    "e",
-                    fin
+                # Permite aceptar cero repeticiones
+                agregar_epsilon(
+                    inicial,
+                    final
                 )
 
-                # Fragmento → fragmento
-                automata.agregar_transicion(
+                # Permite repetir el fragmento
+                agregar_epsilon(
                     fragmento[1],
-                    "e",
                     fragmento[0]
                 )
 
-                # Fragmento → fin
-                automata.agregar_transicion(
+                # Permite salir del fragmento
+                agregar_epsilon(
                     fragmento[1],
-                    "e",
-                    fin
+                    final
                 )
 
                 pila.append(
-                    (
-                        inicio,
-                        fin
-                    )
+                    (inicial, final)
                 )
 
-        # ========================================================
-        # COMPROBAR RESULTADO
-        # ========================================================
+        # -----------------------------------------------------
+        # VERIFICAR RESULTADO
+        # -----------------------------------------------------
 
         if len(pila) != 1:
-
             raise ValueError(
-                "La expresión regular no es válida."
+                "No se pudo construir el AFN. "
+                "Revise la expresión regular."
             )
 
-        inicio, fin = pila.pop()
+        inicial, final = pila.pop()
 
-        automata.definir_inicial(
-            inicio
-        )
-
-        automata.agregar_final(
-            fin
-        )
+        automata.definir_inicial(inicial)
+        automata.agregar_final(final)
 
         return automata
