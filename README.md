@@ -65,3 +65,45 @@ Ejemplo: aceptar exactamente una letra a.
 Validación realizada: cinco pruebas automatizadas satisfactorias, con 13,348
 comparaciones de aceptación, además de comprobaciones de errores y minimalidad.
 Los archivos Python compilan. La ventana no se ha verificado visualmente en este entorno.
+
+## Desplazamiento de la ventana
+Se reservó espacio para las barras verticales del panel y del diagrama.
+Use la barra junto al panel gris, la rueda del mouse sobre ese panel, o las
+teclas Av Pág / Re Pág para bajar o subir los controles. También se manejan
+los movimientos pequeños del panel táctil.
+
+## Validación de logs (nuevo módulo)
+El requisito recibido solo dice «Validación de logs», sin especificar formato.
+Se adoptó el siguiente formato de ejemplo; debe confirmarse con el catedrático:
+
+`AAAA-MM-DD HH:MM:SS [NIVEL] Mensaje`
+
+Ejemplo válido: `2026-10-31 08:00:00 [INFO] Inicio del sistema`.
+Niveles permitidos: DEBUG, INFO, WARNING, ERROR y CRITICAL en mayúsculas.
+Debe haber un espacio entre fecha, hora, nivel y mensaje; el mensaje no puede
+estar vacío ni empezar con espacios. Las líneas vacías se omiten.
+
+1. Abra interfaz.py y pulse «Validación de logs» en la parte superior del panel.
+2. Pulse «Cargar ejemplo», pegue registros o use «Cargar archivo» (.log/.txt UTF-8).
+3. Pulse «Validar logs». El ejemplo incluido devuelve 3 válidos y 4 inválidos.
+4. Revise cada número de línea, resultado y motivo del rechazo.
+5. «Ver regex» muestra el patrón que se utiliza para validar el formato.
+
+Arquitectura: logs.py separa validar_linea / validar_logs de la ventana Tkinter.
+El módulo usa re.fullmatch para comprobar toda la línea y datetime para validar
+fechas y horas reales. La regex por sí sola no detecta fechas inexistentes.
+No modifica los archivos cargados. Admite archivos de hasta 2 MB.
+El módulo de logs utiliza la sintaxis de regex de Python; el generador de
+AFN utiliza Thompson y su sintaxis limitada. No pegue el patrón de logs en el
+campo «Expresión regular» del simulador de autómatas.
+
+Pruebas completas: `python -m unittest -v test_simulador test_logs` desde la
+carpeta que contiene interfaz.py. Nueve pruebas automatizadas pasan, incluyendo
+los 13,348 contrastes de aceptación existentes. La nueva ventana de logs
+requiere comprobación visual en Windows.
+
+Actualización: use el proyecto completo de este ZIP. Si reemplaza archivos
+individualmente, copie interfaz.py, logs.py, test_logs.py y el .pyproj actualizado;
+actualice también este README. Suba estos cambios al repositorio conservando
+las rutas existentes. La documentación técnica/administrativa y presentación
+final se preparan por separado.
