@@ -19,6 +19,10 @@ class Automata:
     # ============================================================
 
     def agregar_simbolo(self, simbolo):
+        if not isinstance(simbolo, str) or len(simbolo) != 1:
+            raise ValueError("Ingrese solamente un símbolo.")
+        if simbolo in ("e", "ε"):
+            raise ValueError("e y ε están reservados para épsilon.")
         self.alfabeto.add(simbolo)
 
     # ============================================================
@@ -52,6 +56,9 @@ class Automata:
     # ============================================================
 
     def agregar_transicion(self, origen, simbolo, destino):
+        if simbolo == "ε":
+            simbolo = "e"
+
 
         if origen not in self.estados:
             raise ValueError(
@@ -219,429 +226,103 @@ class Automata:
     # TABLA DE DISTINGUIBILIDAD
     # ============================================================
 
+    def es_determinista(self):
+        return all(simbolo != "e" and len(destinos) == 1
+                   for (_, simbolo), destinos in self.transiciones.items())
+
+    def _afd_completo(self):
+        """Copia determinista, alcanzable y total; incluye el conjunto vacío."""
+        return self.convertir_a_afd()
+
     def tabla_distinguibilidad(self):
-
-        estados = sorted(
-            self.estados_alcanzables()
-        )
-
-        distinguibles = set()
-
-        # --------------------------------------------------------
-        # Marcar inicialmente los pares:
-        # un estado final y uno no final
-        # --------------------------------------------------------
-
-        for i in range(len(estados)):
-
-            for j in range(i + 1, len(estados)):
-
-                estado1 = estados[i]
-                estado2 = estados[j]
-
-                if self.son_distinguibles(
-                    estado1,
-                    estado2
-                ):
-
-                    distinguibles.add(
-                        (estado1, estado2)
-                    )
-
-        # --------------------------------------------------------
-        # Propagar la distinguibilidad
-        # --------------------------------------------------------
-
+        """Pares distinguibles del AFD original, considerando un pozo implícito."""
+        if not self.es_determinista():
+            raise ValueError("Convierta el AFN a AFD antes de crear esta tabla.")
+        if self.estado_inicial is None:
+            raise ValueError("Debe definir el estado inicial.")
+        estados = sorted(self.estados_alcanzables())
+        pozo = object()
+        todos = estados + [pozo]
+        def destino(q, simbolo):
+            return next(iter(self.transiciones.get((q, simbolo), ())), pozo)
+        pares = set()
+        for i, a in enumerate(todos):
+            for b in todos[i + 1:]:
+                if (a in self.estados_finales) != (b in self.estados_finales):
+                    pares.add(frozenset((a, b)))
         cambio = True
-
         while cambio:
-
             cambio = False
-
-            for i in range(len(estados)):
-
-                for j in range(i + 1, len(estados)):
-
-                    estado1 = estados[i]
-                    estado2 = estados[j]
-
-                    pareja = (
-                        estado1,
-                        estado2
-                    )
-
-                    if pareja in distinguibles:
-                        continue
-
-                    for simbolo in self.alfabeto:
-
-                        destinos1 = self.transiciones.get(
-                            (estado1, simbolo),
-                            set()
-                        )
-
-                        destinos2 = self.transiciones.get(
-                            (estado2, simbolo),
-                            set()
-                        )
-
-                        destino1 = next(
-                            iter(destinos1),
-                            None
-                        )
-
-                        destino2 = next(
-                            iter(destinos2),
-                            None
-                        )
-
-                        # Ninguno tiene transición
-                        if (
-                            destino1 is None
-                            and destino2 is None
-                        ):
-                            continue
-
-                        # Uno tiene transición y el otro no
-                        if (
-                            destino1 is None
-                            or destino2 is None
-                        ):
-
-                            distinguibles.add(
-                                pareja
-                            )
-
-                            cambio = True
-                            break
-
-                        siguiente = tuple(
-                            sorted(
-                                (
-                                    destino1,
-                                    destino2
-                                )
-                            )
-                        )
-
-                        if siguiente in distinguibles:
-
-                            distinguibles.add(
-                                pareja
-                            )
-
-                            cambio = True
-                            break
-
-        return distinguibles
-
-    # ============================================================
-    # MINIMIZAR AFD
-    # ============================================================
+            for i, a in enumerate(todos):
+                for b in todos[i + 1:]:
+                    par = frozenset((a, b))
+                    if par not in pares and any(
+                        frozenset((destino(a, s), destino(b, s))) in pares
+                        for s in self.alfabeto
+                    ):
+                        pares.add(par)
+                        cambio = True
+        return {(a, b) for i, a in enumerate(estados) for b in estados[i + 1:]
+                if frozenset((a, b)) in pares}
 
     def minimizar_afd(self):
-
-        pares = self.tabla_distinguibilidad()
-
-        estados = sorted(
-            self.estados_alcanzables()
-        )
-
-        grupos = []
-
-        # --------------------------------------------------------
-        # Crear grupos de estados equivalentes
-        # --------------------------------------------------------
-
-        for estado in estados:
-
-            grupo_encontrado = None
-
+        """Determiniza y completa antes de minimizar por refinamiento de particiones."""
+        afd = self._afd_completo()
+        grupos = [g for g in (afd.estados_finales,
+                              afd.estados - afd.estados_finales) if g]
+        simbolos = sorted(afd.alfabeto)
+        while True:
+            indice = {q: i for i, grupo in enumerate(grupos) for q in grupo}
+            nuevos = []
             for grupo in grupos:
-
-                representante = grupo[0]
-
-                par = tuple(
-                    sorted(
-                        (
-                            estado,
-                            representante
-                        )
-                    )
-                )
-
-                if par not in pares:
-
-                    grupo_encontrado = grupo
-                    break
-
-            if grupo_encontrado:
-
-                grupo_encontrado.append(
-                    estado
-                )
-
-            else:
-
-                grupos.append(
-                    [estado]
-                )
-
-        # --------------------------------------------------------
-        # Crear AFD minimizado
-        # --------------------------------------------------------
-
-        afd_minimo = Automata()
-
-        # Diccionario:
-        #
-        # M0 -> grupo original
-        # M1 -> grupo original
-        # M2 -> grupo original
-        #
-        # Los nombres M0, M1, M2 hacen que el
-        # diagrama sea mucho más limpio.
-
-        nombres_grupos = {}
-
-        for i, grupo in enumerate(grupos):
-
-            nombre = f"M{i}"
-
-            nombres_grupos[nombre] = grupo
-
-            afd_minimo.agregar_estado(
-                nombre
-            )
-
-        # --------------------------------------------------------
-        # Definir estado inicial
-        # --------------------------------------------------------
-
-        for nombre, grupo in nombres_grupos.items():
-
-            if self.estado_inicial in grupo:
-
-                afd_minimo.definir_inicial(
-                    nombre
-                )
-
-        # --------------------------------------------------------
-        # Definir estados finales
-        # --------------------------------------------------------
-
-        for nombre, grupo in nombres_grupos.items():
-
-            if any(
-                estado in self.estados_finales
-                for estado in grupo
-            ):
-
-                afd_minimo.agregar_final(
-                    nombre
-                )
-
-        # --------------------------------------------------------
-        # Copiar alfabeto
-        # --------------------------------------------------------
-
-        for simbolo in self.alfabeto:
-
-            afd_minimo.agregar_simbolo(
-                simbolo
-            )
-
-        # --------------------------------------------------------
-        # Crear transiciones
-        # --------------------------------------------------------
-
-        for nombre, grupo in nombres_grupos.items():
-
-            representante = grupo[0]
-
-            for simbolo in self.alfabeto:
-
-                clave = (
-                    representante,
-                    simbolo
-                )
-
-                if clave not in self.transiciones:
-                    continue
-
-                destinos = self.transiciones[
-                    clave
-                ]
-
-                if not destinos:
-                    continue
-
-                destino = next(
-                    iter(destinos)
-                )
-
-                # Buscar el grupo al que pertenece
-                # el estado destino.
-
-                for (
-                    nombre_destino,
-                    grupo_destino
-                ) in nombres_grupos.items():
-
-                    if destino in grupo_destino:
-
-                        afd_minimo.agregar_transicion(
-                            nombre,
-                            simbolo,
-                            nombre_destino
-                        )
-
-                        break
-
-        return afd_minimo
-
-    # ============================================================
-    # CONVERTIR AFN → AFD
-    # ============================================================
+                bloques = {}
+                for q in sorted(grupo):
+                    firma = tuple(indice[next(iter(afd.transiciones[(q, s)]))]
+                                  for s in simbolos)
+                    bloques.setdefault(firma, set()).add(q)
+                nuevos.extend(bloques.values())
+            if len(nuevos) == len(grupos):
+                grupos = nuevos
+                break
+            grupos = nuevos
+        minimo = Automata()
+        nombres = {q: f"M{i}" for i, grupo in enumerate(grupos) for q in grupo}
+        for nombre in nombres.values():
+            minimo.agregar_estado(nombre)
+        for simbolo in simbolos:
+            minimo.agregar_simbolo(simbolo)
+        minimo.definir_inicial(nombres[afd.estado_inicial])
+        for q in afd.estados_finales:
+            minimo.agregar_final(nombres[q])
+        for grupo in grupos:
+            q = min(grupo)
+            for simbolo in simbolos:
+                destino = next(iter(afd.transiciones[(q, simbolo)]))
+                minimo.agregar_transicion(nombres[q], simbolo, nombres[destino])
+        return minimo
 
     def convertir_a_afd(self):
-
+        """Construcción por subconjuntos con nombres únicos y estado pozo."""
         if self.estado_inicial is None:
-
-            raise ValueError(
-                "Debe definir el estado inicial."
-            )
-
+            raise ValueError("Debe definir el estado inicial.")
         afd = Automata()
-
-        # --------------------------------------------------------
-        # Estado inicial del AFD
-        # --------------------------------------------------------
-
-        estado_inicial = frozenset(
-            self.epsilon_closure(
-                {self.estado_inicial}
-            )
-        )
-
-        pendientes = [
-            estado_inicial
-        ]
-
-        visitados = set()
-
-        nombre_inicial = (
-            "{"
-            + ",".join(
-                sorted(estado_inicial)
-            )
-            + "}"
-        )
-
-        afd.agregar_estado(
-            nombre_inicial
-        )
-
-        afd.definir_inicial(
-            nombre_inicial
-        )
-
-        # --------------------------------------------------------
-        # Construcción por subconjuntos
-        # --------------------------------------------------------
-
+        for simbolo in self.alfabeto:
+            afd.agregar_simbolo(simbolo)
+        inicial = frozenset(self.epsilon_closure({self.estado_inicial}))
+        nombres = {inicial: "D0"}
+        pendientes = [inicial]
+        afd.agregar_estado("D0")
+        afd.definir_inicial("D0")
         while pendientes:
-
-            conjunto_actual = pendientes.pop()
-
-            if conjunto_actual in visitados:
-                continue
-
-            visitados.add(
-                conjunto_actual
-            )
-
-            nombre_actual = (
-                "{"
-                + ",".join(
-                    sorted(conjunto_actual)
-                )
-                + "}"
-            )
-
-            afd.agregar_estado(
-                nombre_actual
-            )
-
-            # ----------------------------------------------------
-            # Determinar si el conjunto contiene un estado final
-            # ----------------------------------------------------
-
-            if (
-                conjunto_actual
-                & self.estados_finales
-            ):
-
-                afd.agregar_final(
-                    nombre_actual
-                )
-
-            # ----------------------------------------------------
-            # Procesar cada símbolo
-            # ----------------------------------------------------
-
-            for simbolo in self.alfabeto:
-
-                destinos = self.mover(
-                    conjunto_actual,
-                    simbolo
-                )
-
-                destinos = self.epsilon_closure(
-                    destinos
-                )
-
-                if not destinos:
-                    continue
-
-                nuevo_conjunto = frozenset(
-                    destinos
-                )
-
-                nombre_nuevo = (
-                    "{"
-                    + ",".join(
-                        sorted(nuevo_conjunto)
-                    )
-                    + "}"
-                )
-
-                afd.agregar_simbolo(
-                    simbolo
-                )
-
-                if (
-                    nombre_nuevo
-                    not in afd.estados
-                ):
-
-                    afd.agregar_estado(
-                        nombre_nuevo
-                    )
-
-                afd.agregar_transicion(
-                    nombre_actual,
-                    simbolo,
-                    nombre_nuevo
-                )
-
-                if (
-                    nuevo_conjunto
-                    not in visitados
-                ):
-
-                    pendientes.append(
-                        nuevo_conjunto
-                    )
-
+            actual = pendientes.pop(0)
+            nombre = nombres[actual]
+            if actual & self.estados_finales:
+                afd.agregar_final(nombre)
+            for simbolo in sorted(self.alfabeto):
+                destino = frozenset(self.epsilon_closure(self.mover(actual, simbolo)))
+                if destino not in nombres:
+                    nombres[destino] = f"D{len(nombres)}"
+                    afd.agregar_estado(nombres[destino])
+                    pendientes.append(destino)
+                afd.agregar_transicion(nombre, simbolo, nombres[destino])
         return afd

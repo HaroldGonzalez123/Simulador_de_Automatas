@@ -66,11 +66,6 @@ class ExpresionRegular:
 
             if simbolo == "(":
 
-                if not espera_operando:
-                    raise ValueError(
-                        "Falta un operador antes de '('."
-                    )
-
                 balance += 1
                 espera_operando = True
 
@@ -111,6 +106,8 @@ class ExpresionRegular:
 
                 espera_operando = False
 
+            elif simbolo == self.CONCAT:
+                raise ValueError("Use concatenación implícita: ab, no a·b.")
             else:
                 espera_operando = False
 
@@ -281,13 +278,12 @@ class ExpresionRegular:
                 inicial = nuevo_estado()
                 final = nuevo_estado()
 
-                automata.agregar_simbolo(simbolo)
-
-                automata.agregar_transicion(
-                    inicial,
-                    simbolo,
-                    final
-                )
+                # e y ε son épsilon, nunca letras del alfabeto.
+                if simbolo in ("e", "ε"):
+                    agregar_epsilon(inicial, final)
+                else:
+                    automata.agregar_simbolo(simbolo)
+                    automata.agregar_transicion(inicial, simbolo, final)
 
                 pila.append(
                     (inicial, final)

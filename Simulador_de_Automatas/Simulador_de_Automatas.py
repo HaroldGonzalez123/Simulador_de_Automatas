@@ -1,4 +1,4 @@
-﻿from automata import Automata
+from automata import Automata
 
 
 def mostrar_automata(automata):
@@ -67,7 +67,7 @@ def crear_automata():
         simbolo = input("Simbolo (escriba 'e' para epsilon): ").strip()
 
         if simbolo.lower() in ("e", "epsilon"):
-            simbolo = "ε"
+            simbolo = "e"
 
         destino = input("Estado destino: ").strip()
 
@@ -121,6 +121,7 @@ def main():
                     print("\nPrimero debe crear un automata.")
                 else:
                     afd = automata.convertir_a_afd()
+                    automata = afd
 
                     print("\nAFD generado:")
                     mostrar_automata(afd)
@@ -130,6 +131,7 @@ def main():
                     print("\nPrimero debe crear un automata.")
                 else:
                     afd_minimo = automata.minimizar_afd()
+                    automata = afd_minimo
 
                     print("\nAFD minimizado:")
                     mostrar_automata(afd_minimo)
